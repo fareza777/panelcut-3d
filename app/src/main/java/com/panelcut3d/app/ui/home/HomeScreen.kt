@@ -230,25 +230,8 @@ fun HomeScreen(
 
                 item {
                     SectionHeader(
-                        title = "Quick start",
-                        subtitle = "Parametric templates ready to edit",
-                    )
-                }
-
-                item {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        items(FurnitureType.entries.toList()) { type ->
-                            PresetCard(type = type) { showNewSheet = true }
-                        }
-                    }
-                }
-
-                item {
-                    SectionHeader(
-                        title = "Your projects",
-                        subtitle = if (projects.isEmpty()) "No projects yet" else "${projects.size} saved ${if (projects.size == 1) "project" else "projects"}",
+                        title = "Recent projects",
+                        subtitle = if (projects.isEmpty()) "No projects yet" else "${projects.size} saved ${if (projects.size == 1) "project" else "projects"} • newest first",
                     )
                 }
 
@@ -404,7 +387,7 @@ private fun ProjectCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 Text(
-                    "${project.design.params.width.toInt()} × ${project.design.params.height.toInt()} × ${project.design.params.depth.toInt()} mm",
+                    "${project.design.params.width.toInt()} × ${project.design.params.height.toInt()} × ${project.design.params.depth.toInt()} mm • ${Fmt.area(project.design.totalAreaM2())}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f),
                 )

@@ -81,7 +81,10 @@ private val pages = listOf(
 )
 
 @Composable
-fun OnboardingScreen(onDone: () -> Unit) {
+fun OnboardingScreen(
+    onDone: () -> Unit,
+    onTrySample: () -> Unit = onDone,
+) {
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
 
@@ -171,6 +174,14 @@ fun OnboardingScreen(onDone: () -> Unit) {
                 modifier = Modifier.fillMaxWidth(),
                 icon = Icons.Rounded.ArrowForward,
             )
+            if (isLast) {
+                TextButton(
+                    onClick = onTrySample,
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Try a sample wardrobe", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             Spacer(Modifier.height(4.dp))
             Text(
                 text = "No account  •  Local projects  •  One-time upgrade",

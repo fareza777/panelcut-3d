@@ -41,6 +41,7 @@ fun CostTab(
     state: EditorState,
     onUpdateCosts: ((CostAssumptions) -> CostAssumptions) -> Unit,
     onOpenExport: () -> Unit,
+    onOpenQuote: () -> Unit = {},
 ) {
     val design = state.design
     val currency = state.settings.currencyCode
@@ -225,8 +226,28 @@ fun CostTab(
         }
 
         item {
+            PcCard(contentPadding = PaddingValues(16.dp)) {
+                Text("QUOTE BUILDER", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    if (design.quote.customer.isBlank()) "Add customer details, discount, deposit, and terms." else "${design.quote.customer} • ${design.quote.number}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(10.dp))
+                PcButton(
+                    text = "Open quote builder",
+                    onClick = onOpenQuote,
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Rounded.Description,
+                    filled = false,
+                )
+            }
+        }
+
+        item {
             PcButton(
-                text = "Export quote PDF",
+                text = "Export workshop files",
                 onClick = onOpenExport,
                 modifier = Modifier.fillMaxWidth(),
                 icon = Icons.Rounded.Description,

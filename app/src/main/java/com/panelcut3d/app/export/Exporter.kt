@@ -35,8 +35,12 @@ import java.io.FileOutputStream
 
 enum class ExportFormat(val label: String, val mime: String) {
     PDF("Full PDF", "application/pdf"),
+    LABELS_PDF("QR panel labels", "application/pdf"),
+    QUOTE_PDF("Customer quote PDF", "application/pdf"),
     CSV_CUT("CSV cut list", "text/csv"),
     CSV_NEST("CSV nesting", "text/csv"),
+    DXF("DXF sheet layout", "application/dxf"),
+    SVG("SVG sheet layout", "image/svg+xml"),
 }
 
 object Exporter {

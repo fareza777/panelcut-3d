@@ -23,6 +23,10 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.panelcut3d.app.PanelCutApplication
 import com.panelcut3d.app.data.AppSettings
+import com.panelcut3d.app.data.Defaults
+import com.panelcut3d.app.data.DesignEngine
+import com.panelcut3d.app.data.FurnitureProject
+import com.panelcut3d.app.data.FurnitureType
 import com.panelcut3d.app.ui.editor.EditorScreen
 import com.panelcut3d.app.ui.home.HomeScreen
 import com.panelcut3d.app.ui.onboarding.OnboardingScreen
@@ -90,6 +94,23 @@ class AppViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun openEditor(projectId: Long) = navigate(Screen.Editor(projectId))
+
+    fun startSample() {
+        viewModelScope.launch {
+            val current = app.settings.current()
+            app.settings.completeOnboarding()
+            val design = DesignEngine.newDesign(
+                params = Defaults.paramsFor(FurnitureType.WARDROBE),
+                materials = Defaults.materials,
+                primaryId = Defaults.PLY_ID,
+                backId = Defaults.BACK_ID,
+                costs = current.costAssumptions(),
+            )
+            val id = app.projects.save(FurnitureProject(name = "Sample wardrobe", design = design))
+            backStack.clear()
+            screen = Screen.Editor(id)
+        }
+    }
 }
 
 @Composable
@@ -116,6 +137,7 @@ fun PanelCutRoot(app: PanelCutApplication) {
                     when (target) {
                         is Screen.Welcome -> OnboardingScreen(
                             onDone = vm::finishOnboarding,
+                            onTrySample = vm::startSample,
                         )
                         is Screen.Home -> HomeScreen(
                             settings = settings,

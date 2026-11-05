@@ -139,6 +139,16 @@ data class CostAssumptions(
 )
 
 @Serializable
+data class QuoteDetails(
+    val number: String = "",
+    val customer: String = "",
+    val validDays: Int = 14,
+    val discountPercent: Float = 0f,
+    val depositPercent: Float = 30f,
+    val notes: String = "",
+)
+
+@Serializable
 data class ProjectDesign(
     val params: DesignParams = DesignParams(),
     val materials: List<Material> = Defaults.materials,
@@ -147,6 +157,8 @@ data class ProjectDesign(
     val panels: List<Panel> = emptyList(),
     val costs: CostAssumptions = CostAssumptions(),
     val notes: String = "",
+    val quote: QuoteDetails = QuoteDetails(),
+    val cutDone: List<String> = emptyList(),
 ) {
     fun material(id: String): Material =
         materials.firstOrNull { it.id == id }

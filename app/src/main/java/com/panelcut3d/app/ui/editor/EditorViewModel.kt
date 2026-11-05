@@ -19,6 +19,7 @@ import com.panelcut3d.app.data.NestResult
 import com.panelcut3d.app.data.NestingEngine
 import com.panelcut3d.app.data.Panel
 import com.panelcut3d.app.data.ProjectDesign
+import com.panelcut3d.app.data.QuoteDetails
 import com.panelcut3d.app.data.newPanelId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -289,6 +290,20 @@ class EditorViewModel(
 
     fun updateNotes(notes: String) {
         _state.update { it.copy(design = it.design.copy(notes = notes)) }
+        persist()
+    }
+
+    fun updateQuote(quote: QuoteDetails) {
+        _state.update { it.copy(design = it.design.copy(quote = quote)) }
+        persist()
+    }
+
+    fun toggleCutDone(key: String) {
+        _state.update { snapshot ->
+            val done = snapshot.design.cutDone
+            val next = if (key in done) done - key else done + key
+            snapshot.copy(design = snapshot.design.copy(cutDone = next))
+        }
         persist()
     }
 

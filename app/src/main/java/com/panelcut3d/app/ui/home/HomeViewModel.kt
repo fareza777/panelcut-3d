@@ -33,7 +33,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 backId = Defaults.BACK_ID,
                 costs = settings.costAssumptions(),
             )
-            val name = "${type.label} ${Fmt.shortDate(System.currentTimeMillis())}"
+            val name = type.label
             val id = app.projects.save(FurnitureProject(name = name, design = design))
             onCreated(id)
         }

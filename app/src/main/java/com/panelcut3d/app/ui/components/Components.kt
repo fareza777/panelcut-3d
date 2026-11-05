@@ -544,7 +544,7 @@ fun PcIconButton(
 ) {
     Box(
         modifier = modifier
-            .size(42.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(
                 if (filled) MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f)
@@ -863,7 +863,13 @@ fun PlanStat(label: String, value: String, modifier: Modifier = Modifier, valueC
     Column(modifier) {
         Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(3.dp))
-        Text(value, style = MaterialTheme.typography.titleMedium, color = valueColor, maxLines = 1)
+        Text(
+            value,
+            style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
+            color = valueColor,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

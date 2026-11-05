@@ -72,6 +72,7 @@ fun NestingTab(
     onRefresh: () -> Unit,
     onSettings: (Float, Float, Boolean) -> Unit,
     onOpenExport: () -> Unit,
+    onOpenCutDay: () -> Unit = {},
 ) {
     val nesting = state.nesting
     var showSettings by remember { mutableStateOf(false) }
@@ -130,6 +131,13 @@ fun NestingTab(
                         icon = Icons.Rounded.Refresh,
                     )
                 }
+                Spacer(Modifier.height(9.dp))
+                PcButton(
+                    text = "Start cut day",
+                    onClick = onOpenCutDay,
+                    modifier = Modifier.fillMaxWidth(),
+                    icon = Icons.Rounded.GridOn,
+                )
             }
         }
 

@@ -113,8 +113,8 @@ object NestingEngine {
         for ((materialId, panels) in groups) {
             val material = materials[materialId] ?: design.materials.first()
             val instances = panels.flatMap { panel ->
-                List(panel.qty.coerceAtLeast(1)) {
-                    buildPiece(panel, material, settings.respectGrain)
+                List(panel.qty.coerceAtLeast(1)) { instance ->
+                    buildPiece(panel, material, settings.respectGrain, instance)
                 }
             }
             if (instances.isEmpty()) continue
@@ -189,10 +189,10 @@ object NestingEngine {
         )
     }
 
-    private fun buildPiece(panel: Panel, material: Material, respectGrain: Boolean): NestPiece {
+    private fun buildPiece(panel: Panel, material: Material, respectGrain: Boolean, instance: Int): NestPiece {
         val forceRotated = respectGrain && material.hasGrain && panel.grain == Grain.HORIZONTAL
         return NestPiece(
-            id = "n-${panel.id}-${System.nanoTime()}",
+            id = "n-${panel.id}-$instance",
             name = panel.name,
             materialId = material.id,
             materialName = material.name,

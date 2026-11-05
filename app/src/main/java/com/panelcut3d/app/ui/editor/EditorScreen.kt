@@ -58,6 +58,7 @@ import com.panelcut3d.app.data.NestingEngine
 import com.panelcut3d.app.data.Panel
 import com.panelcut3d.app.export.ExportFormat
 import com.panelcut3d.app.export.Exporter
+import com.panelcut3d.app.export.WorkshopExporter
 import com.panelcut3d.app.ui.components.PcIconButton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -89,6 +90,8 @@ fun EditorScreen(
     var menuOpen by remember { mutableStateOf(false) }
     var busyExport by remember { mutableStateOf(false) }
     var fullscreen by remember { mutableStateOf(false) }
+    var showQuote by remember { mutableStateOf(false) }
+    var showCutDay by remember { mutableStateOf(false) }
     var stageLight by remember { mutableStateOf(false) }
 
     BackHandler { vm.closeAnd(onBack) }
@@ -126,6 +129,20 @@ fun EditorScreen(
                             nesting = nesting,
                             units = state.settings.units,
                         )
+                        ExportFormat.LABELS_PDF -> WorkshopExporter.labelsPdf(
+                            context = context,
+                            projectName = state.name,
+                            nesting = nesting,
+                        )
+                        ExportFormat.QUOTE_PDF -> WorkshopExporter.quotePdf(
+                            context = context,
+                            projectName = state.name,
+                            design = state.design,
+                            cost = cost,
+                            currency = state.settings.currencyCode,
+                        )
+                        ExportFormat.DXF -> WorkshopExporter.dxf(context, state.name, nesting)
+                        ExportFormat.SVG -> WorkshopExporter.svg(context, state.name, nesting)
                     }
                     if (saveToDownloads) {
                         Exporter.saveToDownloads(context, file, format.mime)
@@ -230,11 +247,13 @@ fun EditorScreen(
                                 vm.updateNestingSettings(kerf, trim, grain)
                             },
                             onOpenExport = { showExport = true },
+                            onOpenCutDay = { showCutDay = true },
                         )
                         EditorTab.COST -> CostTab(
                             state = state,
                             onUpdateCosts = vm::updateCosts,
                             onOpenExport = { showExport = true },
+                            onOpenQuote = { showQuote = true },
                         )
                     }
                 }
@@ -307,6 +326,34 @@ fun EditorScreen(
                 doExport(format, save)
             },
         )
+    }
+
+    if (showQuote) {
+        val cost = CostEngine.calculate(state.design, state.nesting)
+        QuoteSheet(
+            projectId = state.projectId,
+            projectName = state.name,
+            design = state.design,
+            currency = state.settings.currencyCode,
+            total = cost.total,
+            onDismiss = { showQuote = false },
+            onSave = {
+                vm.updateQuote(it)
+                showQuote = false
+            },
+        )
+    }
+
+    if (showCutDay) {
+        state.nesting?.let { nesting ->
+            CutDayDialog(
+                projectName = state.name,
+                design = state.design,
+                nesting = nesting,
+                onToggle = vm::toggleCutDone,
+                onDismiss = { showCutDay = false },
+            )
+        }
     }
 
     if (showRename) {
