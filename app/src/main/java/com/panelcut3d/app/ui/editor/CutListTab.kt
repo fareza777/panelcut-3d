@@ -159,6 +159,7 @@ fun CutListTab(
 
 @Composable
 private fun CutListGroup(material: Material, rows: List<CutRow>, units: UnitSystem) {
+    val panelCount = rows.sumOf { it.qty }
     PcCard(contentPadding = PaddingValues(0.dp)) {
         Row(
             modifier = Modifier
@@ -176,13 +177,13 @@ private fun CutListGroup(material: Material, rows: List<CutRow>, units: UnitSyst
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Text(
-                    "${rows.sumOf { it.qty }} panels • ${material.thicknessMm.toInt()} mm • ${Fmt.area(rows.sumOf { it.areaM2 })}",
+                    "$panelCount ${if (panelCount == 1) "panel" else "panels"} • ${material.thicknessMm.toInt()} mm • ${Fmt.area(rows.sumOf { it.areaM2 })}",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Text(
-                "${rows.size} types",
+                "${rows.size} ${if (rows.size == 1) "type" else "types"}",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.primary,
             )

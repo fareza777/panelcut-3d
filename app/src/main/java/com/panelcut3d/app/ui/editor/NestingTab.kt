@@ -168,7 +168,7 @@ fun NestingTab(
         if (nesting != null && nesting.materialUsages.isNotEmpty()) {
             item {
                 PcCard(contentPadding = PaddingValues(15.dp)) {
-                    Text("KEBUTUHAN MATERIAL", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("MATERIAL REQUIRED", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(10.dp))
                     nesting.materialUsages.forEach { usage ->
                         Row(
@@ -199,7 +199,7 @@ fun NestingTab(
         item {
             SectionHeader(
                 title = "Sheet layouts",
-                subtitle = "Each sheet is rotated to fit the screen.",
+                subtitle = "Each sheet is rotated to fit the layout.",
             )
         }
 

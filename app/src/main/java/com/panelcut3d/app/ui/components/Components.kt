@@ -790,6 +790,7 @@ fun PcBottomSheet(
     ) {
         Column(
             Modifier
+                .statusBarsPadding()
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp)
                 .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)

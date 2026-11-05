@@ -132,7 +132,11 @@ fun DesignTab(
                             onDragStart = onBeginDrag,
                             onMove = onMove,
                             onDragEnd = onEndDrag,
-                            modifier = Modifier.fillMaxSize(),
+                            // Keep the drawing clear of the floating 3D/2D switch
+                            // and the plan-view chips.
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(top = 38.dp, bottom = 36.dp),
                         )
                     }
 
@@ -253,7 +257,7 @@ fun DesignTab(
             } else {
                 PcCard(contentPadding = PaddingValues(12.dp)) {
                     Text(
-                        "Tap a panel in 3D to select it. Once selected, drag the panel to move it.",
+                        "Tap a panel in ${if (state.is3d) "3D" else "2D"} to select it. Once selected, drag the panel to move it.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
