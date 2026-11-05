@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Left thickness face -->
+    <path android:pathData="M24,44 L54,61 L54,69 L24,52 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="54"
+                android:endY="69"
+                android:startX="24"
+                android:startY="44"
+                android:type="linear">
+                <item android:color="#FF9A5F1E" android:offset="0" />
+                <item android:color="#FF6E3F10" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Right thickness face -->
+    <path android:pathData="M54,61 L84,44 L84,52 L54,69 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="84"
+                android:endY="52"
+                android:startX="54"
+                android:startY="69"
+                android:type="linear">
+                <item android:color="#FFD08B32" android:offset="0" />
+                <item android:color="#FFA9631C" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Laminate layers on the visible edges -->
+    <path
+        android:pathData="M24,47.2 L54,64.2 M54,64.2 L84,47.2"
+        android:strokeAlpha="0.38"
+        android:strokeColor="#FFF4D9AC"
+        android:strokeLineCap="round"
+        android:strokeWidth="0.9" />
+    <path
+        android:pathData="M24,49.9 L54,66.9 M54,66.9 L84,49.9"
+        android:strokeAlpha="0.25"
+        android:strokeColor="#FFF4D9AC"
+        android:strokeLineCap="round"
+        android:strokeWidth="0.9" />
+
+    <!-- Top face -->
+    <path android:pathData="M54,27 L84,44 L54,61 L24,44 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:endX="80"
+                android:endY="60"
+                android:startX="28"
+                android:startY="28"
+                android:type="linear">
+                <item android:color="#FFF8CE8A" android:offset="0" />
+                <item android:color="#FFE3A044" android:offset="1" />
+            </gradient>
+        </aapt:attr>
+    </path>
+
+    <!-- Top face grain -->
+    <path
+        android:pathData="M40,43.7 L62,31 M48,48.3 L70,35.5 M33,44 L48,52.5"
+        android:strokeAlpha="0.22"
+        android:strokeColor="#FF8A5414"
+        android:strokeLineCap="round"
+        android:strokeWidth="0.9" />
+
+    <!-- Highlighted cut edge -->
+    <path
+        android:pathData="M54,27 L84,44"
+        android:strokeAlpha="0.85"
+        android:strokeColor="#FFFFF0D2"
+        android:strokeLineCap="round"
+        android:strokeWidth="1.6" />
+
+    <!-- Precise kerf notch -->
+    <path
+        android:pathData="M62.5,31.9 L66.2,34 L62.5,36.1"
+        android:strokeAlpha="0.55"
+        android:strokeColor="#FF5B3410"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.1" />
+    <path
+        android:pathData="M74,38.6 L77.7,40.7 L74,42.8"
+        android:strokeAlpha="0.35"
+        android:strokeColor="#FF5B3410"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:strokeWidth="1.1" />
+</vector>

@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>PanelCut 3D Viewer</title>
+<style>
+    * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    html, body {
+        margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden;
+        background:
+            radial-gradient(120% 95% at 62% 0%, #1B1F25 0%, #11141A 46%, #08090B 100%);
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        color: #EFE8DC;
+    }
+    #c { display: block; position: fixed; inset: 0; width: 100%; height: 100%; background: #0D0F12; touch-action: none; outline: none; }
+    #hint {
+        position: fixed; left: 50%; bottom: 48px; transform: translateX(-50%); display: flex; align-items: center; gap: 7px;
+        padding: 7px 11px; border-radius: 999px;
+        background: rgba(14, 16, 19, 0.76);
+        border: 1px solid rgba(232, 163, 61, 0.22);
+        color: rgba(239, 232, 220, 0.66);
+        font-size: 10px; letter-spacing: 0.25px; line-height: 1;
+        transition: opacity .6s ease; pointer-events: none;
+        max-width: calc(100% - 24px);
+    }
+    #hint .dot { width: 5px; height: 5px; border-radius: 50%; background: #E8A33D; box-shadow: 0 0 8px #E8A33D; flex: none; }
+    #hint.hidden { opacity: 0; }
+    #loader {
+        position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+        flex-direction: column; gap: 14px; transition: opacity .35s ease;
+        background: #0D0F12;
+    }
+    #loader.gone { opacity: 0; pointer-events: none; }
+    .ring { width: 28px; height: 28px; border-radius: 50%; border: 2px solid rgba(232,163,61,.18); border-top-color: #E8A33D; animation: spin .8s linear infinite; }
+    #loader span { font-size: 10px; letter-spacing: 1.6px;        color: #9C958A; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #error {
+        position: fixed; inset: 0; display: none; align-items: center; justify-content: center;
+        padding: 28px; text-align: center; font-size: 12px; color: #FFB4AB;
+        background: #0C0D0F;
+    }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hint"><span class="dot"></span><span>Tap a panel to select • drag to orbit • pinch to zoom</span></div>
+<div id="loader"><div class="ring"></div><span>PREPARING 3D</span></div>
+<div id="error"></div>
+
+<script src="three.min.js"></script>
+<script>
+(function () {
+    "use strict";
+
+    var canvas = document.getElementById("c");
+    var loader = document.getElementById("loader");
+    var hint = document.getElementById("hint");
+    var errorBox = document.getElementById("error");
+
+    function bridge(fn) {
+        try {
+            if (window.PanelBridge && typeof window.PanelBridge[fn] === "function") {
+                var args = Array.prototype.slice.call(arguments, 1);
+                window.PanelBridge[fn].apply(window.PanelBridge, args);
+            }
+        } catch (e) { /* bridge is best-effort */ }
+    }
+
+    function fail(message) {
+        errorBox.style.display = "flex";
+        errorBox.textContent = message || "The 3D view could not load on this device.";
+        loader.classList.add("gone");
+        bridge("error", message || "3D error");
+    }
+
+    if (!window.THREE) {
+        fail("Failed to load the 3D library.");
+        return;
+    }
+
+    var renderer;
+    try {
+        renderer = new THREE.WebGLRenderer({
+            canvas: canvas,
+            antialias: true,
+            alpha: false,
+            powerPreference: "high-performance"
+        });
+    } catch (e) {
+        fail("WebGL is not available on this device.");
+        return;
+    }
+
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+    renderer.setClearColor(0x0D0F12, 1);
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    if ("outputColorSpace" in renderer) renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+
+    var scene = new THREE.Scene();
+    var camera = new THREE.PerspectiveCamera(38, 1, 0.01, 200);
+    var group = new THREE.Group();
+    scene.add(group);
+
+    // ---------------------------------------------------------------- lights
+    scene.add(new THREE.HemisphereLight(0xFFF2DE, 0x0A0B0D, 1.05));
+
+    var key = new THREE.DirectionalLight(0xFFEED6, 2.6);
+    key.castShadow = true;
+    key.shadow.mapSize.set(1024, 1024);
+    key.shadow.bias = -0.0006;
+    key.shadow.normalBias = 0.006;
+    key.target.position.set(0, 0.6, 0);
+    scene.add(key);
+    scene.add(key.target);
+
+    var rim = new THREE.DirectionalLight(0x9CC7B4, 0.95);
+    rim.position.set(-2.8, 2.2, -3.2);
+    scene.add(rim);
+
+    var warm = new THREE.PointLight(0xFFA859, 5.5, 14, 2);
+    warm.position.set(-1.8, 2.4, 1.6);
+    scene.add(warm);
+
+    var fill = new THREE.DirectionalLight(0xFFFFFF, 0.32);
+    fill.position.set(0.4, 1.2, 4.0);
+    scene.add(fill);
+
+    // ---------------------------------------------------------------- floor
+    var ground = new THREE.Mesh(
+        new THREE.PlaneGeometry(24, 24),
+        new THREE.ShadowMaterial({ color: 0x000000, opacity: 0.34 })
+    );
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    var grid = new THREE.GridHelper(6, 24, 0x39404A, 0x22262C);
+    grid.position.y = 0.0008;
+    if (grid.material) {
+        grid.material.transparent = true;
+        grid.material.opacity = 0.6;
+    }
+    scene.add(grid);
+
+    // ---------------------------------------------------------------- state
+    var state = {
+        panels: [],
+        bounds: { w: 1200, h: 2000, d: 600 },
+        selected: null
+    };
+    var entries = {};
+    var footprint = null;
+    var baseTexture = null;
+    var materialCache = {};
+
+    function grainTexture() {
+        if (baseTexture) return baseTexture;
+        var size = 256;
+        var c = document.createElement("canvas");
+        c.width = size;
+        c.height = size;
+        var ctx = c.getContext("2d");
+        ctx.fillStyle = "#FFFFFF";
+        ctx.fillRect(0, 0, size, size);
+        for (var i = 0; i < 80; i++) {
+            var y = Math.random() * size;
+            ctx.strokeStyle = "rgba(52, 31, 12, " + (0.02 + Math.random() * 0.075) + ")";
+            ctx.lineWidth = 0.4 + Math.random() * 1.5;
+            ctx.beginPath();
+            for (var x = 0; x <= size; x += 6) {
+                var yy = y + Math.sin((x + i * 23) / 42) * 3.4 + Math.sin(x / 13) * 1.1;
+                if (x === 0) ctx.moveTo(x, yy); else ctx.lineTo(x, yy);
+            }
+            ctx.stroke();
+        }
+        for (var d = 0; d < 900; d++) {
+            ctx.fillStyle = "rgba(40, 24, 8, " + (Math.random() * 0.035) + ")";
+            ctx.fillRect(Math.random() * size, Math.random() * size, 1, 1);
+        }
+        var texture = new THREE.CanvasTexture(c);
+        texture.wrapS = THREE.RepeatWrapping;
+        texture.wrapT = THREE.RepeatWrapping;
+        texture.repeat.set(1.7, 1.7);
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = Math.min(4, renderer.capabilities.getMaxAnisotropy());
+        baseTexture = texture;
+        return texture;
+    }
+
+    function baseMaterial(hex) {
+        if (materialCache[hex]) return materialCache[hex];
+        var material = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(hex),
+            map: grainTexture(),
+            roughness: 0.63,
+            metalness: 0.03,
+            emissive: new THREE.Color(0x000000)
+        });
+        materialCache[hex] = material;
+        return material;
+    }
+
+    function clearGroup() {
+        for (var id in entries) {
+            var entry = entries[id];
+            if (!entry) continue;
+            group.remove(entry.mesh);
+            entry.mesh.geometry.dispose();
+            entry.edges.geometry.dispose();
+            entry.edges.material.dispose();
+            entry.mesh.material.dispose();
+        }
+        entries = {};
+        if (footprint) {
+            group.remove(footprint);
+            footprint.geometry.dispose();
+            footprint.material.dispose();
+            footprint = null;
+        }
+        state.selected = null;
+    }
+
+    function applySelection() {
+        for (var id in entries) {
+            var entry = entries[id];
+            var selected = id === state.selected;
+            entry.mesh.material.emissive.setHex(selected ? 0xE8A33D : 0x000000);
+            entry.mesh.material.emissiveIntensity = selected ? 0.52 : 0.0;
+            entry.edges.material.color.setHex(selected ? 0xFFC46B : 0x231505);
+            entry.edges.material.opacity = selected ? 0.95 : 0.35;
+            entry.mesh.material.needsUpdate = true;
+        }
+    }
+
+    function select(id) {
+        var next = id && entries[id] ? id : null;
+        if (state.selected === next) {
+            applySelection();
+            return;
+        }
+        state.selected = next;
+        applySelection();
+    }
+
+    function buildFootprint(w, h, d) {
+        var points = [
+            new THREE.Vector3(0, 0.002, 0),
+            new THREE.Vector3(w, 0.002, 0),
+            new THREE.Vector3(w, 0.002, d),
+            new THREE.Vector3(0, 0.002, d)
+        ];
+        var geometry = new THREE.BufferGeometry().setFromPoints(points);
+        var material = new THREE.LineBasicMaterial({
+            color: 0xE8A33D,
+            transparent: true,
+            opacity: 0.38
+        });
+        footprint = new THREE.LineLoop(geometry, material);
+        group.add(footprint);
+    }
+
+    function addPanel(panel) {
+        var w = Math.max(panel.sx, 0.6) / 1000;
+        var h = Math.max(panel.sy, 0.6) / 1000;
+        var d = Math.max(panel.sz, 0.6) / 1000;
+        var geometry = new THREE.BoxGeometry(w, h, d);
+        var material = baseMaterial(panel.color || "#C9A176").clone();
+        var mesh = new THREE.Mesh(geometry, material);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.position.set(
+            (panel.x + panel.sx / 2) / 1000,
+            (panel.y + panel.sy / 2) / 1000,
+            (panel.z + panel.sz / 2) / 1000
+        );
+        mesh.userData.id = panel.id;
+
+        var edges = new THREE.LineSegments(
+            new THREE.EdgesGeometry(geometry),
+            new THREE.LineBasicMaterial({
+                color: 0x231505,
+                transparent: true,
+                opacity: 0.35
+            })
+        );
+        mesh.add(edges);
+        group.add(mesh);
+        entries[panel.id] = { mesh: mesh, edges: edges, panel: panel };
+    }
+
+    // ---------------------------------------------------------------- camera
+    var target = new THREE.Vector3(0, 1, 0);
+    var orbit = { radius: 4, theta: -0.62, phi: 1.12 };
+    var transition = null;
+
+    function clamp(value, min, max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    function applyCamera() {
+        var sinPhi = Math.sin(orbit.phi);
+        camera.position.set(
+            target.x + orbit.radius * sinPhi * Math.sin(orbit.theta),
+            target.y + orbit.radius * Math.cos(orbit.phi),
+            target.z + orbit.radius * sinPhi * Math.cos(orbit.theta)
+        );
+        camera.lookAt(target);
+    }
+
+    function cameraHome(mode, animate) {
+        var w = state.bounds.w / 1000;
+        var h = state.bounds.h / 1000;
+        var d = state.bounds.d / 1000;
+        var centerY = Math.max(h * 0.5, 0.28);
+        target.set(0, centerY, 0);
+        var radius = Math.sqrt(w * w + h * h + d * d) / 2;
+        var vFov = camera.fov * Math.PI / 180;
+        var distV = radius / Math.sin(vFov / 2);
+        var hFov = 2 * Math.atan(Math.tan(vFov / 2) * Math.max(camera.aspect, 0.4));
+        var distH = radius / Math.sin(hFov / 2);
+        var dist = Math.max(distV, distH) * 1.22;
+        var theta = -0.62;
+        var phi = 1.12;
+        if (mode === "front") { theta = 0; phi = Math.PI / 2 - 0.04; }
+        if (mode === "top") { theta = 0; phi = 0.11; }
+        if (animate) {
+            transition = {
+                t: 0,
+                duration: 520,
+                from: { radius: orbit.radius, theta: orbit.theta, phi: orbit.phi, tx: target.x, ty: target.y, tz: target.z },
+                to: { radius: dist, theta: theta, phi: phi, tx: target.x, ty: target.y, tz: target.z }
+            };
+        } else {
+            orbit.radius = dist;
+            orbit.theta = theta;
+            orbit.phi = phi;
+            transition = null;
+            applyCamera();
+        }
+    }
+
+    function updateTransition(dt) {
+        if (!transition) return;
+        transition.t += dt * 1000;
+        var k = clamp(transition.t / transition.duration, 0, 1);
+        var e = 1 - Math.pow(1 - k, 3);
+        var f = transition.from;
+        var t = transition.to;
+        orbit.radius = f.radius + (t.radius - f.radius) * e;
+        orbit.theta = f.theta + (t.theta - f.theta) * e;
+        orbit.phi = f.phi + (t.phi - f.phi) * e;
+        target.set(
+            f.tx + (t.tx - f.tx) * e,
+            f.ty + (t.ty - f.ty) * e,
+            f.tz + (t.tz - f.tz) * e
+        );
+        if (k >= 1) transition = null;
+        applyCamera();
+    }
+
+    // -------------------------------------------------------------- pointer
+    var pointers = {};
+    var raycaster = new THREE.Raycaster();
+    var ndc = new THREE.Vector2();
+    var gesture = null;
+    var piece = null;
+    var pinch = null;
+    var pendingMove = null;
+    var moveScheduled = false;
+
+    function pointerCount() {
+        return Object.keys(pointers).length;
+    }
+
+    function pick(clientX, clientY) {
+        var rect = canvas.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return null;
+        ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(ndc, camera);
+        var meshes = [];
+        for (var id in entries) meshes.push(entries[id].mesh);
+        var hits = raycaster.intersectObjects(meshes, false);
+        return hits.length ? hits[0].object.userData.id : null;
+    }
+
+    function planePoint(clientX, clientY, plane) {
+        var rect = canvas.getBoundingClientRect();
+        ndc.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+        ndc.y = -((clientY - rect.top) / rect.height) * 2 + 1;
+        raycaster.setFromCamera(ndc, camera);
+        var point = new THREE.Vector3();
+        return raycaster.ray.intersectPlane(plane, point) ? point : null;
+    }
+
+    function beginPiece(id, clientX, clientY) {
+        var entry = entries[id];
+        if (!entry) return;
+        var panel = entry.panel;
+        var centerY = (panel.y + panel.sy / 2) / 1000;
+        var plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -centerY);
+        var hit = planePoint(clientX, clientY, plane);
+        piece = {
+            id: id,
+            panel: panel,
+            plane: plane,
+            offset: hit ? new THREE.Vector3().subVectors(entry.mesh.position, hit) : new THREE.Vector3(),
+            dragging: false,
+            y: panel.y
+        };
+    }
+
+    function emitMove(id, x, y, z) {
+        pendingMove = { id: id, x: x, y: y, z: z };
+        if (moveScheduled) return;
+        moveScheduled = true;
+        requestAnimationFrame(function () {
+            moveScheduled = false;
+            if (pendingMove) {
+                bridge("move", pendingMove.id, pendingMove.x, pendingMove.y, pendingMove.z);
+                pendingMove = null;
+            }
+        });
+    }
+
+    function dragPiece(clientX, clientY) {
+        if (!piece) return;
+        var entry = entries[piece.id];
+        if (!entry) return;
+        var hit = planePoint(clientX, clientY, piece.plane);
+        if (!hit) return;
+        var world = new THREE.Vector3().addVectors(hit, piece.offset);
+        var panel = piece.panel;
+        var minX = (world.x - panel.sx / 2000) * 1000;
+        var minZ = (world.z - panel.sz / 2000) * 1000;
+        minX = Math.round(minX / 5) * 5;
+        minZ = Math.round(minZ / 5) * 5;
+        minX = clamp(minX, -1500, state.bounds.w + 1500);
+        minZ = clamp(minZ, -1500, state.bounds.d + 1500);
+        entry.mesh.position.x = (minX + panel.sx / 2) / 1000;
+        entry.mesh.position.z = (minZ + panel.sz / 2) / 1000;
+        panel.x = minX;
+        panel.z = minZ;
+        if (!piece.dragging) {
+            piece.dragging = true;
+            bridge("moveStart", piece.id);
+            hideHint();
+        }
+        emitMove(piece.id, minX, panel.y, minZ);
+    }
+
+    function endPiece() {
+        if (!piece) return;
+        if (piece.dragging) {
+            bridge("moveEnd", piece.id, piece.panel.x, piece.panel.y, piece.panel.z);
+        }
+        piece = null;
+    }
+
+    function hideHint() {
+        hint.classList.add("hidden");
+    }
+
+    canvas.addEventListener("pointerdown", function (e) {
+        canvas.setPointerCapture(e.pointerId);
+        pointers[e.pointerId] = { x: e.clientX, y: e.clientY };
+        transition = null;
+        if (pointerCount() === 1) {
+            var hit = pick(e.clientX, e.clientY);
+            gesture = {
+                mode: hit && hit === state.selected ? "piece" : "orbit",
+                hit: hit,
+                x: e.clientX,
+                y: e.clientY,
+                startX: e.clientX,
+                startY: e.clientY,
+                moved: false
+            };
+            if (gesture.mode === "piece") beginPiece(hit, e.clientX, e.clientY);
+            hideHint();
+        } else if (pointerCount() === 2) {
+            var ids = Object.keys(pointers);
+            var a = pointers[ids[0]];
+            var b = pointers[ids[1]];
+            pinch = {
+                distance: Math.hypot(a.x - b.x, a.y - b.y),
+                radius: orbit.radius,
+                midX: (a.x + b.x) / 2,
+                midY: (a.y + b.y) / 2,
+                target: target.clone()
+            };
+            if (piece) endPiece();
+            gesture = null;
+        }
+    }, { passive: true });
+
+    canvas.addEventListener("pointermove", function (e) {
+        if (!pointers[e.pointerId]) return;
+        pointers[e.pointerId].x = e.clientX;
+        pointers[e.pointerId].y = e.clientY;
+
+        if (pointerCount() >= 2 && pinch) {
+            var ids = Object.keys(pointers);
+            var a = pointers[ids[0]];
+            var b = pointers[ids[1]];
+            var distance = Math.max(20, Math.hypot(a.x - b.x, a.y - b.y));
+            orbit.radius = clamp(pinch.radius * (pinch.distance / distance), 0.35, 40);
+            var midX = (a.x + b.x) / 2;
+            var midY = (a.y + b.y) / 2;
+            var dx = midX - pinch.midX;
+            var dy = midY - pinch.midY;
+            var height = Math.max(1, canvas.clientHeight);
+            var worldPerPx = 2 * Math.tan((camera.fov * Math.PI / 180) / 2) * orbit.radius / height;
+            var right = new THREE.Vector3().setFromMatrixColumn(camera.matrixWorld, 0);
+            var up = new THREE.Vector3(0, 1, 0);
+            target.copy(pinch.target)
+                .addScaledVector(right, -dx * worldPerPx)
+                .addScaledVector(up, dy * worldPerPx);
+            applyCamera();
+            return;
+        }
+
+        if (!gesture) return;
+        var totalDx = e.clientX - gesture.startX;
+        var totalDy = e.clientY - gesture.startY;
+        if (Math.abs(totalDx) + Math.abs(totalDy) > 6) gesture.moved = true;
+
+        if (gesture.mode === "orbit") {
+            var dx2 = e.clientX - gesture.x;
+            var dy2 = e.clientY - gesture.y;
+            orbit.theta -= dx2 * 0.0075;
+            orbit.phi = clamp(orbit.phi - dy2 * 0.0075, 0.11, Math.PI / 2 + 0.14);
+            gesture.x = e.clientX;
+            gesture.y = e.clientY;
+            applyCamera();
+        } else if (gesture.mode === "piece") {
+            dragPiece(e.clientX, e.clientY);
+        }
+    }, { passive: true });
+
+    function releasePointer(e) {
+        if (!pointers[e.pointerId]) return;
+        pointers[e.pointerId] = undefined;
+        delete pointers[e.pointerId];
+
+        if (pointerCount() === 0) {
+            if (gesture && !gesture.moved) {
+                select(gesture.hit);
+                bridge("select", gesture.hit || "");
+            }
+            if (piece) endPiece();
+            gesture = null;
+            pinch = null;
+        } else if (pointerCount() === 1) {
+            pinch = null;
+            var ids = Object.keys(pointers);
+            var p = pointers[ids[0]];
+            gesture = {
+                mode: "orbit",
+                hit: null,
+                x: p.x,
+                y: p.y,
+                startX: p.x,
+                startY: p.y,
+                moved: true
+            };
+        }
+    }
+
+    canvas.addEventListener("pointerup", releasePointer, { passive: true });
+    canvas.addEventListener("pointercancel", releasePointer, { passive: true });
+
+    canvas.addEventListener("wheel", function (e) {
+        e.preventDefault();
+        orbit.radius = clamp(orbit.radius * (1 + Math.sign(e.deltaY) * 0.09), 0.35, 40);
+        transition = null;
+        applyCamera();
+        hideHint();
+    }, { passive: false });
+
+    // -------------------------------------------------------------- lifecycle
+    function resize() {
+        var w = window.innerWidth || document.documentElement.clientWidth || canvas.clientWidth;
+        var h = window.innerHeight || document.documentElement.clientHeight || canvas.clientHeight;
+        if (w <= 0 || h <= 0) return;
+        // WebView can resolve 100vh to 0 while it is being attached. Give the
+        // canvas an explicit CSS size so its drawing buffer is visible.
+        canvas.style.width = w + "px";
+        canvas.style.height = h + "px";
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.6));
+        renderer.setSize(w, h, false);
+        camera.aspect = w / h;
+        camera.updateProjectionMatrix();
+        applyCamera();
+    }
+
+    if (window.ResizeObserver) {
+        new ResizeObserver(resize).observe(document.documentElement);
+    } else {
+        window.addEventListener("resize", resize);
+    }
+
+    var lastTime = performance.now();
+    var lastFrameAt = performance.now();
+    function loop(now) {
+        var dt = Math.min(0.05, (now - lastTime) / 1000);
+        lastTime = now;
+        lastFrameAt = performance.now();
+        updateTransition(dt);
+        renderer.render(scene, camera);
+        requestAnimationFrame(loop);
+    }
+    requestAnimationFrame(loop);
+
+    // Some WebViews throttle requestAnimationFrame while the view is being
+    // attached. Keep the canvas alive with a timer fallback until a real frame
+    // is delivered.
+    setInterval(function () {
+        if (performance.now() - lastFrameAt > 350) {
+            lastFrameAt = performance.now();
+            updateTransition(0.033);
+            renderer.render(scene, camera);
+        }
+    }, 250);
+
+    function updateEnvironment() {
+        var w = state.bounds.w / 1000;
+        var h = state.bounds.h / 1000;
+        var d = state.bounds.d / 1000;
+        var span = Math.max(w, d, h);
+        key.position.set(span * 1.6 + 1.2, h * 1.8 + 2.0, span * 1.5 + 1.4);
+        key.target.position.set(0, h * 0.4, 0);
+        key.target.updateMatrixWorld();
+        var extent = Math.max(span * 1.4, 1.2);
+        key.shadow.camera.left = -extent;
+        key.shadow.camera.right = extent;
+        key.shadow.camera.top = extent;
+        key.shadow.camera.bottom = -extent;
+        key.shadow.camera.near = 0.1;
+        key.shadow.camera.far = Math.max(12, span * 8);
+        key.shadow.camera.updateProjectionMatrix();
+
+        rim.position.set(-span * 1.6 - 1, h * 1.4 + 1, -span * 1.4 - 1);
+        warm.position.set(-w * 1.4 - 0.6, h * 1.2 + 0.6, d * 1.6 + 0.8);
+
+        var footprintSize = Math.max(span * 1.8, 2.2);
+        grid.scale.setScalar(Math.max(0.6, footprintSize / 6));
+        grid.position.y = 0.0006;
+    }
+
+    // ------------------------------------------------------------------- API
+    function load(payload) {
+        try {
+            clearGroup();
+            state.panels = payload.panels || [];
+            state.bounds = {
+                w: Math.max(100, payload.width || 1200),
+                h: Math.max(100, payload.height || 2000),
+                d: Math.max(100, payload.depth || 600)
+            };
+            var w = state.bounds.w / 1000;
+            var h = state.bounds.h / 1000;
+            var d = state.bounds.d / 1000;
+            group.position.set(-w / 2, 0, -d / 2);
+            for (var i = 0; i < state.panels.length; i++) addPanel(state.panels[i]);
+            buildFootprint(w, h, d);
+            updateEnvironment();
+            resize();
+            setTimeout(resize, 60);
+            setTimeout(resize, 300);
+            cameraHome("iso", false);
+            if (payload.mode) cameraHome(payload.mode, false);
+            select(state.selected);
+            var box = new THREE.Box3().setFromObject(group);
+            var boxSize = box.getSize(new THREE.Vector3());
+            var boxCenter = box.getCenter(new THREE.Vector3());
+            console.log(
+                "PanelCut 3D: viewport", window.innerWidth, window.innerHeight,
+                "canvas", canvas.clientWidth, canvas.clientHeight, canvas.width, canvas.height,
+                "ratio", renderer.getPixelRatio(),
+                "aspect", camera.aspect.toFixed(3),
+                "camera", camera.position.toArray().join(","),
+                "target", target.toArray().join(","),
+                "bounds", boxSize.toArray().join(","),
+                "center", boxCenter.toArray().join(",")
+            );
+            renderer.render(scene, camera);
+            console.log(
+                "PanelCut 3D: rendered",
+                renderer.info.render.calls, "calls",
+                renderer.info.render.triangles, "triangles",
+                "glError", renderer.getContext().getError()
+            );
+            loader.classList.add("gone");
+            setTimeout(function () { hint.classList.add("hidden"); }, 6500);
+            console.log("PanelCut 3D: scene loaded", state.panels.length, "panels");
+        } catch (err) {
+            fail("Failed to build the 3D view: " + (err && err.message ? err.message : err));
+        }
+    }
+
+    function setTheme(theme) {
+        var light = theme === "light";
+        document.body.style.background = light
+            ? "radial-gradient(120% 95% at 62% 0%, #FFFDF9 0%, #F2ECE2 52%, #E4DACB 100%)"
+            : "radial-gradient(120% 95% at 62% 0%, #1B1F25 0%, #11141A 46%, #08090B 100%)";
+        document.body.style.color = light ? "#3A2F24" : "#EFE8DC";
+        canvas.style.background = light ? "#F2ECE2" : "#0D0F12";
+        renderer.setClearColor(light ? 0xF2ECE2 : 0x0D0F12, 1);
+        renderer.toneMappingExposure = light ? 0.98 : 1.05;
+        loader.style.background = light ? "#F2ECE2" : "#0D0F12";
+        var loaderLabel = loader.querySelector("span");
+        if (loaderLabel) loaderLabel.style.color = light ? "#8C7A63" : "#9C958A";
+        errorBox.style.background = light ? "#FBF7F0" : "#0C0D0F";
+        errorBox.style.color = light ? "#8A3B32" : "#FFB4AB";
+        hint.style.background = light ? "rgba(255, 252, 247, 0.9)" : "rgba(14, 16, 19, 0.76)";
+        hint.style.borderColor = light ? "rgba(110, 78, 37, 0.22)" : "rgba(232, 163, 61, 0.22)";
+        hint.style.color = light ? "rgba(52, 42, 30, 0.72)" : "rgba(239, 232, 220, 0.66)";
+        if (grid) grid.visible = !light;
+        if (ground && ground.material) ground.material.opacity = light ? 0.18 : 0.34;
+        renderer.render(scene, camera);
+    }
+
+    window.PanelCutViewer = {
+        load: load,
+        resize: resize,
+        select: function (id) { select(id ? String(id) : null); },
+        setMode: function (mode) { cameraHome(mode || "iso", true); },
+        setTheme: setTheme,
+        setSelected: function (id) { select(id ? String(id) : null); },
+        reset: function () { cameraHome("iso", true); },
+        zoom: function (factor) {
+            orbit.radius = clamp(orbit.radius * factor, 0.35, 40);
+            transition = null;
+            applyCamera();
+        },
+        dispose: function () {
+            try { renderer.dispose(); } catch (e) {}
+        }
+    };
+
+    window.addEventListener("error", function (e) {
+        var message = e && e.message ? String(e.message) : "";
+        // ResizeObserver loop notices are benign and must not cover the view.
+        if (message.indexOf("ResizeObserver loop") !== -1) return;
+        if (message) bridge("error", message);
+    });
+
+    var requestedTheme = new URLSearchParams(window.location.search).get("theme");
+    setTheme(requestedTheme === "light" ? "light" : "dark");
+
+    setTimeout(resize, 30);
+    window.addEventListener("resize", resize);
+
+    // The JS interface is injected by Android around page load. Poll instead of
+    // relying on requestAnimationFrame, which may be throttled while the
+    // WebView is being attached to its parent.
+    function announceReady(attempt) {
+        if (window.PanelBridge && typeof window.PanelBridge.ready === "function") {
+            try {
+                window.PanelBridge.ready();
+                console.log("PanelCut 3D: bridge ready");
+                return;
+            } catch (e) { /* retry */ }
+        }
+        if (attempt < 100) {
+            setTimeout(function () { announceReady(attempt + 1); }, 100);
+        } else {
+            console.log("PanelCut 3D: bridge unavailable");
+        }
+    }
+    setTimeout(function () { announceReady(0); }, 0);
+})();
+</script>
+</body>
+</html>
