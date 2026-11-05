@@ -10,6 +10,7 @@ data class CutRow(
     val grain: Grain,
     val banding: Banding,
     val isDoor: Boolean,
+    val panelIds: List<String> = emptyList(),
 ) {
     val areaM2: Double get() = cutW.toDouble() * cutH.toDouble() * qty / 1_000_000.0
     val bandingMeters: Double get() = banding.lengthMm(cutW, cutH).toDouble() * qty / 1000.0
@@ -41,6 +42,7 @@ fun ProjectDesign.cutRows(): List<CutRow> {
             grain = first.grain,
             banding = first.banding,
             isDoor = first.isDoor,
+            panelIds = items.map { it.id }.distinct(),
         )
     }.sortedWith(compareBy({ it.material.name }, { -it.cutH }, { -it.cutW }))
 }

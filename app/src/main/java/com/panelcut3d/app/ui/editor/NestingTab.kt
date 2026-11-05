@@ -2,7 +2,11 @@ package com.panelcut3d.app.ui.editor
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.rememberTransformableState
+import androidx.compose.foundation.gestures.transformable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,15 +17,18 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Download
+import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.GridOn
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Tune
@@ -29,11 +36,13 @@ import androidx.compose.material.icons.rounded.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -43,6 +52,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.AnnotatedString
@@ -52,6 +63,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.panelcut3d.app.data.Fmt
 import com.panelcut3d.app.data.NestResult
 import com.panelcut3d.app.data.NestSheet
@@ -73,6 +86,8 @@ fun NestingTab(
     onSettings: (Float, Float, Boolean) -> Unit,
     onOpenExport: () -> Unit,
     onOpenCutDay: () -> Unit = {},
+    selectedPanelId: String? = null,
+    onSelectPanel: (String?) -> Unit = {},
 ) {
     val nesting = state.nesting
     var showSettings by remember { mutableStateOf(false) }
@@ -224,7 +239,12 @@ fun NestingTab(
         } else {
             nesting.sheets.forEach { sheet ->
                 item(key = "sheet-${sheet.index}") {
-                    SheetCard(sheet = sheet, units = units)
+                    SheetCard(
+                        sheet = sheet,
+                        units = units,
+                        selectedPanelId = selectedPanelId,
+                        onSelectPanel = onSelectPanel,
+                    )
                 }
             }
         }
@@ -256,6 +276,7 @@ fun NestingTab(
 
 @Composable
 private fun UtilizationDonut(percent: Float) {
+    val accent = if (percent >= 70f) MaterialTheme.colorScheme.secondary else MaterialTheme.colorScheme.primary
     Box(Modifier.size(92.dp), contentAlignment = Alignment.Center) {
         Canvas(Modifier.fillMaxSize()) {
             val stroke = 9.dp.toPx()
@@ -267,7 +288,7 @@ private fun UtilizationDonut(percent: Float) {
                 style = Stroke(stroke, cap = StrokeCap.Round),
             )
             drawArc(
-                color = Color(0xFFE8A33D),
+                color = accent,
                 startAngle = -90f,
                 sweepAngle = 360f * (percent / 100f).coerceIn(0f, 1f),
                 useCenter = false,
@@ -278,7 +299,7 @@ private fun UtilizationDonut(percent: Float) {
             Text(
                 "${percent.toInt()}%",
                 style = MaterialTheme.typography.headlineSmall,
-                color = MaterialTheme.colorScheme.primary,
+                color = accent,
             )
             Text("efficient", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
@@ -286,9 +307,15 @@ private fun UtilizationDonut(percent: Float) {
 }
 
 @Composable
-private fun SheetCard(sheet: NestSheet, units: com.panelcut3d.app.data.UnitSystem) {
+private fun SheetCard(
+    sheet: NestSheet,
+    units: com.panelcut3d.app.data.UnitSystem,
+    selectedPanelId: String?,
+    onSelectPanel: (String?) -> Unit,
+) {
     val used = 100.0 - sheet.wastePercent
-    PcCard(contentPadding = PaddingValues(12.dp)) {
+    var expanded by remember { mutableStateOf(false) }
+    PcCard(onClick = { expanded = true }, contentPadding = PaddingValues(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Box(
                 Modifier
@@ -312,11 +339,14 @@ private fun SheetCard(sheet: NestSheet, units: com.panelcut3d.app.data.UnitSyste
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Text(
-                Fmt.percent(used, 1),
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary,
-            )
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    Fmt.percent(used, 1),
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+                Text("Inspect", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            }
         }
         Spacer(Modifier.height(10.dp))
         SheetDiagram(
@@ -325,6 +355,7 @@ private fun SheetCard(sheet: NestSheet, units: com.panelcut3d.app.data.UnitSyste
                 .fillMaxWidth()
                 .aspectRatio(sheet.sheetH / sheet.sheetW)
                 .clip(RoundedCornerShape(12.dp)),
+            selectedPanelId = selectedPanelId,
         )
         Spacer(Modifier.height(10.dp))
         sheet.placements.forEachIndexed { index, piece ->
@@ -355,11 +386,130 @@ private fun SheetCard(sheet: NestSheet, units: com.panelcut3d.app.data.UnitSyste
             }
         }
     }
+    if (expanded) {
+        SheetZoomDialog(
+            sheet = sheet,
+            selectedPanelId = selectedPanelId,
+            onSelectPanel = onSelectPanel,
+            onDismiss = { expanded = false },
+        )
+    }
 }
 
 @Composable
-private fun SheetDiagram(sheet: NestSheet, modifier: Modifier = Modifier) {
+private fun SheetZoomDialog(
+    sheet: NestSheet,
+    selectedPanelId: String?,
+    onSelectPanel: (String?) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var scale by remember { mutableFloatStateOf(1f) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
+    val transformState = rememberTransformableState { zoomChange, panChange, _ ->
+        scale = (scale * zoomChange).coerceIn(1f, 4f)
+        pan = if (scale <= 1.001f) Offset.Zero else pan + panChange
+    }
+    Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
+        Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+            Column(Modifier.statusBarsPadding().navigationBarsPadding()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(start = 18.dp, end = 10.dp, top = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Text("Sheet ${sheet.index}", style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            "${sheet.materialName} • ${sheet.sheetW.toInt()} × ${sheet.sheetH.toInt()} mm • ${Fmt.percent(100.0 - sheet.wastePercent, 1)} used",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    PcIconButton(
+                        icon = Icons.Rounded.Close,
+                        contentDescription = "Close sheet",
+                        onClick = onDismiss,
+                        filled = true,
+                    )
+                }
+                Text(
+                    "Pinch to zoom • drag to pan • tap a panel to select it",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                )
+                Box(
+                    Modifier
+                        .weight(1f)
+                        .fillMaxWidth()
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(Color(0xFF121417))
+                        .pointerInput(sheet, scale, pan) {
+                            detectTapGestures { tap ->
+                                val cx = size.width / 2f
+                                val cy = size.height / 2f
+                                val tx = (tap.x - pan.x - cx) / scale + cx
+                                val ty = (tap.y - pan.y - cy) / scale + cy
+                                val pad = 6.dp.toPx()
+                                val fit = min(
+                                    (size.width - pad * 2) / sheet.sheetH,
+                                    (size.height - pad * 2) / sheet.sheetW,
+                                )
+                                val ox = (size.width - sheet.sheetH * fit) / 2f
+                                val oy = (size.height - sheet.sheetW * fit) / 2f
+                                val lx = (tx - ox) / fit
+                                val ly = (ty - oy) / fit
+                                sheet.placements.firstOrNull { p ->
+                                    lx in p.y..(p.y + p.h) && ly in p.x..(p.x + p.w)
+                                }?.let { onSelectPanel(it.panelId) }
+                            }
+                        }
+                        .transformable(transformState),
+                ) {
+                    SheetDiagram(
+                        sheet = sheet,
+                        showNames = true,
+                        selectedPanelId = selectedPanelId,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = scale
+                                scaleY = scale
+                                translationX = pan.x
+                                translationY = pan.y
+                            },
+                    )
+                }
+                Row(
+                    Modifier.fillMaxWidth().padding(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(9.dp),
+                ) {
+                    PcButton(
+                        text = "Reset view",
+                        onClick = { scale = 1f; pan = Offset.Zero },
+                        modifier = Modifier.weight(1f),
+                        filled = false,
+                    )
+                    PcButton(
+                        text = "Done",
+                        onClick = onDismiss,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun SheetDiagram(
+    sheet: NestSheet,
+    modifier: Modifier = Modifier,
+    showNames: Boolean = false,
+    selectedPanelId: String? = null,
+) {
     val textMeasurer = rememberTextMeasurer()
+    val accent = MaterialTheme.colorScheme.primary
     val palette = listOf(
         Color(0xFFE8A33D),
         Color(0xFFB9CBBE),
@@ -410,6 +560,29 @@ private fun SheetDiagram(sheet: NestSheet, modifier: Modifier = Modifier) {
                 size = Size(w, h),
                 style = Stroke(0.5.dp.toPx()),
             )
+            if (selectedPanelId != null && p.panelId == selectedPanelId) {
+                drawRect(
+                    color = accent,
+                    topLeft = Offset(left, top),
+                    size = Size(w, h),
+                    style = Stroke(2.5.dp.toPx()),
+                )
+            }
+            if (showNames && w > 42.dp.toPx() && h > 12.dp.toPx()) {
+                val label = textMeasurer.measure(
+                    AnnotatedString(p.name.take(18)),
+                    style = TextStyle(
+                        color = labelColor,
+                        fontSize = 6.sp,
+                        fontWeight = FontWeight.Medium,
+                    ),
+                    maxLines = 1,
+                )
+                drawText(
+                    label,
+                    topLeft = Offset(left + 3.dp.toPx(), top + 2.dp.toPx()),
+                )
+            }
             if (w > 22.dp.toPx() && h > 13.dp.toPx()) {
                 val layout = textMeasurer.measure(
                     AnnotatedString("${index + 1}"),
@@ -424,7 +597,7 @@ private fun SheetDiagram(sheet: NestSheet, modifier: Modifier = Modifier) {
                         layout,
                         topLeft = Offset(
                             left + w / 2f - layout.size.width / 2f,
-                            top + h / 2f - layout.size.height / 2f,
+                            top + h - layout.size.height - 2.dp.toPx(),
                         ),
                     )
                 }

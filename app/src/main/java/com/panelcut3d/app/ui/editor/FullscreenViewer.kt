@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -22,6 +23,7 @@ import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +42,11 @@ fun FullscreenViewer(
     selectedId: String?,
     mode: ViewerMode,
     stageLight: Boolean,
+    showDoors: Boolean = true,
+    exploded: Boolean = false,
     onToggleStage: () -> Unit,
+    onToggleDoors: () -> Unit = {},
+    onToggleExplode: () -> Unit = {},
     onSelect: (String?) -> Unit,
     onBeginDrag: () -> Unit,
     onMove: (String, Float, Float, Float) -> Unit,
@@ -68,6 +74,8 @@ fun FullscreenViewer(
                 selectedId = selectedId,
                 mode = mode,
                 stageLight = stageLight,
+                showDoors = showDoors,
+                exploded = exploded,
                 cornerRadius = 0.dp,
                 onSelect = onSelect,
                 onMoveStart = onBeginDrag,
@@ -129,6 +137,40 @@ fun FullscreenViewer(
                     )
                 }
             }
+
+            Row(
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .navigationBarsPadding()
+                    .padding(bottom = 18.dp)
+                    .clip(RoundedCornerShape(50))
+                    .background(controlBackground)
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                FullscreenToggle("Doors", showDoors, foreground, onToggleDoors)
+                FullscreenToggle("Exploded", exploded, foreground, onToggleExplode)
+            }
         }
     }
+}
+
+@Composable
+private fun FullscreenToggle(
+    label: String,
+    selected: Boolean,
+    foreground: Color,
+    onClick: () -> Unit,
+) {
+    Text(
+        label,
+        color = if (selected) Color(0xFFF3C27C) else foreground.copy(alpha = 0.72f),
+        style = androidx.compose.material3.MaterialTheme.typography.labelMedium,
+        modifier = Modifier
+            .minimumInteractiveComponentSize()
+            .clip(RoundedCornerShape(50))
+            .background(if (selected) Color(0x33E8A33D) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+    )
 }

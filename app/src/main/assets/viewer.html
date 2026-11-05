@@ -292,6 +292,28 @@
         entries[panel.id] = { mesh: mesh, edges: edges, panel: panel };
     }
 
+    function applyViewOptions() {
+        var baseW = state.bounds ? state.bounds.w / 1000 : 1;
+        var baseD = state.bounds ? state.bounds.d / 1000 : 1;
+        Object.keys(entries).forEach(function (id) {
+            var entry = entries[id];
+            var panel = entry.panel;
+            var baseX = (panel.x + panel.sx / 2) / 1000;
+            var baseY = (panel.y + panel.sy / 2) / 1000;
+            var baseZ = (panel.z + panel.sz / 2) / 1000;
+            entry.mesh.visible = !(panel.door && state.showDoors === false);
+            if (state.exploded) {
+                var dx = (baseX - baseW / 2) * 0.42;
+                var dz = (baseZ - baseD / 2) * 0.42;
+                if (Math.abs(dx) < 0.003 && Math.abs(dz) < 0.003 && panel.door) dz = 0.09;
+                entry.mesh.position.set(baseX + dx, baseY, baseZ + dz);
+            } else {
+                entry.mesh.position.set(baseX, baseY, baseZ);
+            }
+        });
+        renderer.render(scene, camera);
+    }
+
     // ---------------------------------------------------------------- camera
     var target = new THREE.Vector3(0, 1, 0);
     var orbit = { radius: 4, theta: -0.62, phi: 1.12 };
@@ -667,6 +689,7 @@
             var d = state.bounds.d / 1000;
             group.position.set(-w / 2, 0, -d / 2);
             for (var i = 0; i < state.panels.length; i++) addPanel(state.panels[i]);
+            applyViewOptions();
             buildFootprint(w, h, d);
             updateEnvironment();
             resize();
@@ -730,6 +753,14 @@
         resize: resize,
         select: function (id) { select(id ? String(id) : null); },
         setMode: function (mode) { cameraHome(mode || "iso", true); },
+        setDoorsVisible: function (visible) {
+            state.showDoors = visible !== false;
+            applyViewOptions();
+        },
+        setExploded: function (enabled) {
+            state.exploded = !!enabled;
+            applyViewOptions();
+        },
         setTheme: setTheme,
         setSelected: function (id) { select(id ? String(id) : null); },
         reset: function () { cameraHome("iso", true); },

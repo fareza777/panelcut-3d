@@ -191,6 +191,7 @@ fun HomeScreen(
                 }
 
                 item {
+                    if (projects.isEmpty()) {
                     GradientHero {
                         Row {
                             Column(Modifier.weight(1f)) {
@@ -225,6 +226,15 @@ fun HomeScreen(
                             PlanStat("SHEETS", sheetCount.toString(), Modifier.weight(1f))
                             PlanStat("AREA", Fmt.area(totalArea), Modifier.weight(1.2f))
                         }
+                    }
+                    } else {
+                        HomeOverviewCard(
+                            projectCount = projects.size,
+                            panelCount = panelCount,
+                            sheetCount = sheetCount,
+                            totalArea = totalArea,
+                            latestName = projects.firstOrNull()?.name,
+                        )
                     }
                 }
 
@@ -320,6 +330,50 @@ fun HomeScreen(
                 TextButton(onClick = { deleteTarget = null }) { Text("Cancel") }
             },
         )
+    }
+}
+
+@Composable
+private fun HomeOverviewCard(
+    projectCount: Int,
+    panelCount: Int,
+    sheetCount: Int,
+    totalArea: Double,
+    latestName: String?,
+) {
+    PcCard(contentPadding = PaddingValues(15.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            BrandMark(size = 38.dp)
+            Spacer(Modifier.width(10.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    "WORKSHOP OVERVIEW",
+                    style = MaterialTheme.typography.labelSmall,
+                    letterSpacing = 1.3.sp,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+                Text(
+                    latestName?.let { "Continue $it" } ?: "Everything within reach",
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            Text(
+                "LOCAL",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.secondary,
+            )
+        }
+        Spacer(Modifier.height(13.dp))
+        DividerSoft()
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            PlanStat("PROJECTS", projectCount.toString(), Modifier.weight(1f))
+            PlanStat("PANELS", panelCount.toString(), Modifier.weight(1f))
+            PlanStat("SHEETS", sheetCount.toString(), Modifier.weight(1f))
+            PlanStat("AREA", Fmt.area(totalArea), Modifier.weight(1.2f))
+        }
     }
 }
 

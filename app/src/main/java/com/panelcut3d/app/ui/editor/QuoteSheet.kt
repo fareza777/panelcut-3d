@@ -47,7 +47,30 @@ fun QuoteSheet(
     var notes by remember { mutableStateOf(design.quote.notes) }
     val afterDiscount = total - total * discount / 100.0
 
-    PcBottomSheet(onDismiss = onDismiss) {
+    fun saveQuote() {
+        onSave(
+            QuoteDetails(
+                number = number.trim(),
+                customer = customer.trim(),
+                validDays = validDays,
+                discountPercent = discount,
+                depositPercent = deposit,
+                notes = notes.trim(),
+            ),
+        )
+    }
+
+    PcBottomSheet(
+        onDismiss = onDismiss,
+        footer = {
+            PcButton(
+                text = "Save quote",
+                onClick = ::saveQuote,
+                modifier = Modifier.fillMaxWidth(),
+                enabled = customer.isNotBlank(),
+            )
+        },
+    ) {
         SheetTitle(
             title = "Quote builder",
             subtitle = "Prepare a customer-ready quotation for $projectName.",
@@ -121,23 +144,5 @@ fun QuoteSheet(
                 Text(Fmt.money(afterDiscount * deposit / 100.0, currency), style = MaterialTheme.typography.titleMedium)
             }
         }
-        Spacer(Modifier.height(16.dp))
-        PcButton(
-            text = "Save quote",
-            onClick = {
-                onSave(
-                    QuoteDetails(
-                        number = number.trim(),
-                        customer = customer.trim(),
-                        validDays = validDays,
-                        discountPercent = discount,
-                        depositPercent = deposit,
-                        notes = notes.trim(),
-                    ),
-                )
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = customer.isNotBlank(),
-        )
     }
 }

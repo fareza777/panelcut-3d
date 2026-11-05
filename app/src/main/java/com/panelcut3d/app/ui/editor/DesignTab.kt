@@ -30,6 +30,7 @@ import androidx.compose.material.icons.rounded.Tune
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +55,10 @@ fun DesignTab(
     onToggle3d: (Boolean) -> Unit,
     onViewerMode: (ViewerMode) -> Unit,
     stageLight: Boolean = false,
+    showDoors: Boolean = true,
+    exploded: Boolean = false,
+    onToggleDoors: () -> Unit = {},
+    onToggleExplode: () -> Unit = {},
     onOpenFullscreen: () -> Unit = {},
     onPlanView: (PlanView) -> Unit,
     onResetCamera: () -> Unit,
@@ -116,6 +121,8 @@ fun DesignTab(
                             selectedId = state.selectedPanelId,
                             mode = state.viewerMode,
                             stageLight = stageLight,
+                            showDoors = showDoors,
+                            exploded = exploded,
                             onSelect = onSelect,
                             onMoveStart = onBeginDrag,
                             onMove = onMove,
@@ -193,6 +200,40 @@ fun DesignTab(
                         } else {
                             PlanView.entries.forEach { view ->
                                 ModeChip(view.label, state.planView == view) { onPlanView(view) }
+                            }
+                        }
+                    }
+
+                    if (state.is3d) {
+                        Row(
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(10.dp),
+                            horizontalArrangement = Arrangement.spacedBy(5.dp),
+                        ) {
+                            DarkChipButton(
+                                label = "Doors",
+                                onClick = onToggleDoors,
+                                selected = showDoors,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Inventory2,
+                                    contentDescription = null,
+                                    tint = if (showDoors) Color(0xFFF3C27C) else Color(0xFFB8B2A8),
+                                    modifier = Modifier.size(13.dp),
+                                )
+                            }
+                            DarkChipButton(
+                                label = "Explode",
+                                onClick = onToggleExplode,
+                                selected = exploded,
+                            ) {
+                                Icon(
+                                    Icons.Rounded.Fullscreen,
+                                    contentDescription = null,
+                                    tint = if (exploded) Color(0xFFF3C27C) else Color(0xFFB8B2A8),
+                                    modifier = Modifier.size(13.dp),
+                                )
                             }
                         }
                     }
@@ -347,7 +388,7 @@ fun DesignTab(
                         icon = Icons.Rounded.Edit,
                         contentDescription = "Edit ${panel.name}",
                         onClick = { onEditPanel(panel) },
-                        modifier = Modifier.size(38.dp),
+                        modifier = Modifier,
                     )
                 }
             }
@@ -408,6 +449,7 @@ private fun ViewModeToggle3D(
                 Modifier
                     .clip(RoundedCornerShape(50))
                     .background(if (active) Color(0xFFE8A33D) else Color.Transparent)
+                    .minimumInteractiveComponentSize()
                     .clickable { onChange(index == 0) }
                     .padding(horizontal = 13.dp, vertical = 6.dp),
             ) {
@@ -428,6 +470,7 @@ private fun ModeChip(label: String, active: Boolean, onClick: () -> Unit) {
         Modifier
             .clip(RoundedCornerShape(50))
             .background(if (active) Color(0x33E8A33D) else Color(0xCC111418))
+            .minimumInteractiveComponentSize()
             .clickable(onClick = onClick)
             .padding(horizontal = 11.dp, vertical = 5.dp),
     ) {
@@ -444,18 +487,24 @@ private fun DarkChipButton(
     label: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    icon: @Composable () -> Unit,
+    selected: Boolean = false,
+    icon: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(50))
-            .background(Color(0xCC111418))
+            .background(if (selected) Color(0x66E8A33D) else Color(0xCC111418))
+            .minimumInteractiveComponentSize()
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 5.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp),
     ) {
-        icon()
-        Text(label, style = MaterialTheme.typography.labelSmall, color = Color(0xFFB8B2A8))
+        icon?.invoke()
+        Text(
+            label,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) Color(0xFFF3C27C) else Color(0xFFB8B2A8),
+        )
     }
 }

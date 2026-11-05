@@ -7,17 +7,20 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.ArrowBack
@@ -48,18 +51,25 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.panelcut3d.app.PanelCutApplication
 import com.panelcut3d.app.data.CostEngine
+import com.panelcut3d.app.data.Fmt
 import com.panelcut3d.app.data.NestingEngine
 import com.panelcut3d.app.data.Panel
 import com.panelcut3d.app.export.ExportFormat
 import com.panelcut3d.app.export.Exporter
 import com.panelcut3d.app.export.WorkshopExporter
 import com.panelcut3d.app.ui.components.PcIconButton
+import com.panelcut3d.app.ui.components.PcButton
+import com.panelcut3d.app.ui.components.PcCard
+import com.panelcut3d.app.ui.components.PlanStat
+import com.panelcut3d.app.ui.components.DividerSoft
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -92,6 +102,9 @@ fun EditorScreen(
     var fullscreen by remember { mutableStateOf(false) }
     var showQuote by remember { mutableStateOf(false) }
     var showCutDay by remember { mutableStateOf(false) }
+    var showDoors by remember { mutableStateOf(true) }
+    var exploded by remember { mutableStateOf(false) }
+    val wide = LocalConfiguration.current.screenWidthDp >= 760
     var stageLight by remember { mutableStateOf(false) }
 
     BackHandler { vm.closeAnd(onBack) }
@@ -209,11 +222,12 @@ fun EditorScreen(
                     onDelete = { showDelete = true },
                 )
                 EditorTabs(selected = state.tab, onSelect = vm::setTab)
-                Box(
+                Row(
                     Modifier
                         .weight(1f)
                         .navigationBarsPadding(),
                 ) {
+                Box(Modifier.weight(1f)) {
                     when (state.tab) {
                         EditorTab.DESIGN -> DesignTab(
                             state = state,
@@ -221,6 +235,10 @@ fun EditorScreen(
                             onToggle3d = vm::set3d,
                             onViewerMode = vm::setViewerMode,
                             stageLight = stageLight,
+                            showDoors = showDoors,
+                            exploded = exploded,
+                            onToggleDoors = { showDoors = !showDoors },
+                            onToggleExplode = { exploded = !exploded },
                             onOpenFullscreen = { fullscreen = true },
                             onPlanView = vm::setPlanView,
                             onResetCamera = vm::resetCamera,
@@ -239,6 +257,8 @@ fun EditorScreen(
                             nesting = state.nesting,
                             units = state.settings.units,
                             onOpenExport = { showExport = true },
+                            selectedPanelId = state.selectedPanelId,
+                            onSelectPanel = vm::selectPanel,
                         )
                         EditorTab.NESTING -> NestingTab(
                             state = state,
@@ -248,6 +268,8 @@ fun EditorScreen(
                             },
                             onOpenExport = { showExport = true },
                             onOpenCutDay = { showCutDay = true },
+                            selectedPanelId = state.selectedPanelId,
+                            onSelectPanel = vm::selectPanel,
                         )
                         EditorTab.COST -> CostTab(
                             state = state,
@@ -256,6 +278,20 @@ fun EditorScreen(
                             onOpenQuote = { showQuote = true },
                         )
                     }
+                }
+                if (wide) {
+                    EditorInspector(
+                        state = state,
+                        onCutDay = { showCutDay = true },
+                        onQuote = { showQuote = true },
+                        onExport = { showExport = true },
+                        onEditPanel = { editingPanel = it },
+                        modifier = Modifier
+                            .width(300.dp)
+                            .fillMaxHeight()
+                            .padding(start = 4.dp, end = 12.dp, top = 6.dp, bottom = 10.dp),
+                    )
+                }
                 }
             }
         }
@@ -267,7 +303,11 @@ fun EditorScreen(
             selectedId = state.selectedPanelId,
             mode = state.viewerMode,
             stageLight = stageLight,
+            showDoors = showDoors,
+            exploded = exploded,
             onToggleStage = { stageLight = !stageLight },
+            onToggleDoors = { showDoors = !showDoors },
+            onToggleExplode = { exploded = !exploded },
             onSelect = vm::selectPanel,
             onBeginDrag = vm::beginPanelDrag,
             onMove = vm::movePanel,
@@ -384,6 +424,77 @@ fun EditorScreen(
                 TextButton(onClick = { showDelete = false }) { Text("Cancel") }
             },
         )
+    }
+}
+
+@Composable
+private fun EditorInspector(
+    state: EditorState,
+    onCutDay: () -> Unit,
+    onQuote: () -> Unit,
+    onExport: () -> Unit,
+    onEditPanel: (Panel) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val design = state.design
+    val cost = remember(design, state.nesting) { CostEngine.calculate(design, state.nesting) }
+    val selected = state.selectedPanel
+    Column(
+        modifier = modifier.verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        PcCard(contentPadding = PaddingValues(14.dp)) {
+            Text("PROJECT PULSE", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PlanStat("PANELS", design.panels.size.toString(), Modifier.weight(1f))
+                PlanStat("SHEETS", (state.nesting?.sheetCount ?: 0).toString(), Modifier.weight(1f))
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                PlanStat("AREA", Fmt.area(design.totalAreaM2()), Modifier.weight(1f))
+                PlanStat("EST.", Fmt.money(cost.total, state.settings.currencyCode), Modifier.weight(1.3f), MaterialTheme.colorScheme.primary)
+            }
+        }
+        PcCard(contentPadding = PaddingValues(14.dp)) {
+            Text(
+                if (selected == null) "NO PANEL SELECTED" else "SELECTED PANEL",
+                style = MaterialTheme.typography.labelSmall,
+                letterSpacing = 1.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(6.dp))
+            if (selected != null) {
+                Text(selected.name, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+                Text(
+                    "${Fmt.dimNoUnit(selected.cutW, state.settings.units)} × ${Fmt.dimNoUnit(selected.cutH, state.settings.units)} ${state.settings.units.suffix} • ${selected.grain.label}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Spacer(Modifier.height(8.dp))
+                PcButton(
+                    text = "Edit selected panel",
+                    onClick = { onEditPanel(selected) },
+                    modifier = Modifier.fillMaxWidth(),
+                    filled = false,
+                )
+            } else {
+                Text(
+                    "Tap a panel in 3D or 2D to see its cut size, material, and edge banding here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        PcCard(contentPadding = PaddingValues(14.dp)) {
+            Text("WORKSHOP", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(9.dp))
+            PcButton("Cut day", onCutDay, Modifier.fillMaxWidth())
+            Spacer(Modifier.height(7.dp))
+            PcButton("Quote builder", onQuote, Modifier.fillMaxWidth(), filled = false)
+            Spacer(Modifier.height(7.dp))
+            PcButton("Export files", onExport, Modifier.fillMaxWidth(), filled = false)
+        }
     }
 }
 

@@ -12,6 +12,7 @@ import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -97,6 +98,8 @@ fun Viewer3D(
     selectedId: String?,
     mode: ViewerMode,
     stageLight: Boolean = false,
+    showDoors: Boolean = true,
+    exploded: Boolean = false,
     cornerRadius: Dp = 18.dp,
     onSelect: (String?) -> Unit,
     onMoveStart: () -> Unit,
@@ -286,6 +289,24 @@ fun Viewer3D(
         }
     }
 
+    LaunchedEffect(ready, payload, showDoors) {
+        if (ready) {
+            webView.evaluateJavascript(
+                "window.PanelCutViewer && PanelCutViewer.setDoorsVisible($showDoors)",
+                null,
+            )
+        }
+    }
+
+    LaunchedEffect(ready, payload, exploded) {
+        if (ready) {
+            webView.evaluateJavascript(
+                "window.PanelCutViewer && PanelCutViewer.setExploded($exploded)",
+                null,
+            )
+        }
+    }
+
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(cornerRadius))
@@ -306,11 +327,22 @@ fun Viewer3D(
                     .padding(22.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                Text(
-                    text = "3D view unavailable.\n$message",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "3D view unavailable.\n$message",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    androidx.compose.material3.TextButton(
+                        onClick = {
+                            error = null
+                            ready = false
+                            webView.reload()
+                        },
+                    ) {
+                        Text("Try again")
+                    }
+                }
             }
         }
     }

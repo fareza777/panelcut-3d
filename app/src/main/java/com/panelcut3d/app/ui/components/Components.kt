@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -41,6 +42,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Button
@@ -276,6 +278,7 @@ fun Pill(
             .clip(shape)
             .background(bg)
             .border(1.dp, border, shape)
+            .then(if (onClick != null) Modifier.minimumInteractiveComponentSize() else Modifier)
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -427,7 +430,8 @@ fun DimStepper(
 private fun StepButton(icon: ImageVector, enabled: Boolean, onClick: () -> Unit) {
     Box(
         modifier = Modifier
-            .size(34.dp)
+            .minimumInteractiveComponentSize()
+            .size(48.dp)
             .clip(CircleShape)
             .background(
                 if (enabled) MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
@@ -769,6 +773,7 @@ fun MiniPlan(design: ProjectDesign, modifier: Modifier = Modifier) {
 fun PcBottomSheet(
     onDismiss: () -> Unit,
     scrollable: Boolean = true,
+    footer: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -788,15 +793,42 @@ fun PcBottomSheet(
             )
         },
     ) {
-        Column(
-            Modifier
-                .statusBarsPadding()
-                .navigationBarsPadding()
-                .padding(horizontal = 20.dp)
-                .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
-                .padding(bottom = 18.dp),
-            content = content,
-        )
+        if (footer == null) {
+            Column(
+                Modifier
+                    .statusBarsPadding()
+                    .navigationBarsPadding()
+                    .padding(horizontal = 20.dp)
+                    .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                    .padding(bottom = 18.dp),
+                content = content,
+            )
+        } else {
+            Column(
+                Modifier
+                    .fillMaxHeight(0.92f)
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+            ) {
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .padding(horizontal = 20.dp)
+                        .then(if (scrollable) Modifier.verticalScroll(rememberScrollState()) else Modifier)
+                        .padding(bottom = 14.dp),
+                    content = content,
+                )
+                DividerSoft()
+                Box(
+                    Modifier
+                        .fillMaxWidth()
+                        .background(MaterialTheme.colorScheme.surface)
+                        .padding(horizontal = 20.dp, vertical = 12.dp),
+                ) {
+                    footer()
+                }
+            }
+        }
     }
 }
 

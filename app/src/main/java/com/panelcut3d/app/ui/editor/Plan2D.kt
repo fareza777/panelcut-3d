@@ -3,9 +3,24 @@ package com.panelcut3d.app.ui.editor
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CenterFocusStrong
+import androidx.compose.material.icons.rounded.Remove
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -32,6 +47,7 @@ import com.panelcut3d.app.data.Panel
 import com.panelcut3d.app.data.ProjectDesign
 import com.panelcut3d.app.data.UnitSystem
 import com.panelcut3d.app.ui.toColor
+import com.panelcut3d.app.ui.components.PcIconButton
 import kotlin.math.min
 
 private data class PlanTransform(val scale: Float, val ox: Float, val oy: Float)
@@ -42,16 +58,18 @@ private fun planTransform(
     contentW: Float,
     contentH: Float,
     padding: Float,
+    zoom: Float = 1f,
+    pan: Offset = Offset.Zero,
 ): PlanTransform {
     if (contentW <= 0f || contentH <= 0f) return PlanTransform(1f, 0f, 0f)
     val scale = min(
         (width - padding * 2f) / contentW,
         (height - padding * 2f) / contentH,
-    ).coerceAtLeast(0.005f)
+    ).coerceAtLeast(0.005f) * zoom
     return PlanTransform(
         scale = scale,
-        ox = (width - contentW * scale) / 2f,
-        oy = (height - contentH * scale) / 2f,
+        ox = (width - contentW * scale) / 2f + pan.x,
+        oy = (height - contentH * scale) / 2f + pan.y,
     )
 }
 
@@ -115,13 +133,22 @@ fun Plan2D(
     val moveState = rememberUpdatedState(onMove)
     val startState = rememberUpdatedState(onDragStart)
     val endState = rememberUpdatedState(onDragEnd)
+    var zoom by remember { mutableFloatStateOf(1f) }
+    var pan by remember { mutableStateOf(Offset.Zero) }
+    val zoomState = rememberUpdatedState(zoom)
+    val panState = rememberUpdatedState(pan)
 
     val tapModifier = Modifier.pointerInput(Unit) {
-        detectTapGestures { offset ->
+        detectTapGestures(
+            onDoubleTap = {
+                zoom = 1f
+                pan = Offset.Zero
+            },
+        ) { offset ->
             val d = designState.value
             val v = viewState.value
             val ch = if (v == PlanView.FRONT) d.params.height else d.params.depth
-            val t = planTransform(size.width.toFloat(), size.height.toFloat(), d.params.width, ch, paddingPx)
+            val t = planTransform(size.width.toFloat(), size.height.toFloat(), d.params.width, ch, paddingPx, zoomState.value, panState.value)
             selectState.value(hitPanel(d.panels, v, offset.x, offset.y, t, ch)?.id)
         }
     }
@@ -135,7 +162,7 @@ fun Plan2D(
                 val d = designState.value
                 val v = viewState.value
                 val ch = if (v == PlanView.FRONT) d.params.height else d.params.depth
-                val t = planTransform(size.width.toFloat(), size.height.toFloat(), d.params.width, ch, paddingPx)
+                val t = planTransform(size.width.toFloat(), size.height.toFloat(), d.params.width, ch, paddingPx, zoomState.value, panState.value)
                 val hit = hitPanel(d.panels, v, offset.x, offset.y, t, ch)
                 selectState.value(hit?.id)
                 active = hit
@@ -144,7 +171,11 @@ fun Plan2D(
             },
             onDrag = { change, dragAmount ->
                 change.consume()
-                val p = active ?: return@detectDragGestures
+                val p = active
+                if (p == null) {
+                    pan += dragAmount
+                    return@detectDragGestures
+                }
                 if (scale <= 0f) return@detectDragGestures
                 if (!moved) {
                     moved = true
@@ -181,8 +212,9 @@ fun Plan2D(
         )
     }
 
-    Canvas(modifier = modifier.then(tapModifier).then(dragModifier)) {
-        val t = planTransform(size.width, size.height, contentW, contentH, paddingPx)
+    Box(modifier) {
+    Canvas(modifier = Modifier.fillMaxSize().then(tapModifier).then(dragModifier)) {
+        val t = planTransform(size.width, size.height, contentW, contentH, paddingPx, zoom, pan)
         val areaW = contentW * t.scale
         val areaH = contentH * t.scale
 
@@ -343,6 +375,38 @@ fun Plan2D(
                 size.height - legendLayout.size.height - 10.dp.toPx(),
             ),
         )
+    }
+        Row(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            PcIconButton(
+                icon = Icons.Rounded.Remove,
+                contentDescription = "Zoom out plan",
+                onClick = {
+                    zoom = (zoom / 1.25f).coerceAtLeast(1f)
+                    if (zoom == 1f) pan = Offset.Zero
+                },
+                filled = true,
+            )
+            PcIconButton(
+                icon = Icons.Rounded.CenterFocusStrong,
+                contentDescription = "Fit plan",
+                onClick = {
+                    zoom = 1f
+                    pan = Offset.Zero
+                },
+                filled = true,
+            )
+            PcIconButton(
+                icon = Icons.Rounded.Add,
+                contentDescription = "Zoom in plan",
+                onClick = { zoom = (zoom * 1.25f).coerceAtMost(3.5f) },
+                filled = true,
+            )
+        }
     }
 }
 

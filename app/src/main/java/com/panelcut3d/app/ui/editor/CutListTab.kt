@@ -1,6 +1,7 @@
 package com.panelcut3d.app.ui.editor
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,6 +57,8 @@ fun CutListTab(
     nesting: NestResult?,
     units: UnitSystem,
     onOpenExport: () -> Unit,
+    selectedPanelId: String? = null,
+    onSelectPanel: (String?) -> Unit = {},
 ) {
     val groups = remember(design) { design.cutRowsByMaterial() }
     var filter by remember { mutableStateOf<String?>(null) }
@@ -126,7 +129,13 @@ fun CutListTab(
         }
 
         items(filtered, key = { it.first.id }) { (material, rows) ->
-            CutListGroup(material = material, rows = rows, units = units)
+            CutListGroup(
+                material = material,
+                rows = rows,
+                units = units,
+                selectedPanelId = selectedPanelId,
+                onSelectPanel = onSelectPanel,
+            )
         }
 
         item {
@@ -158,7 +167,13 @@ fun CutListTab(
 }
 
 @Composable
-private fun CutListGroup(material: Material, rows: List<CutRow>, units: UnitSystem) {
+private fun CutListGroup(
+    material: Material,
+    rows: List<CutRow>,
+    units: UnitSystem,
+    selectedPanelId: String?,
+    onSelectPanel: (String?) -> Unit,
+) {
     val panelCount = rows.sumOf { it.qty }
     PcCard(contentPadding = PaddingValues(0.dp)) {
         Row(
@@ -191,17 +206,32 @@ private fun CutListGroup(material: Material, rows: List<CutRow>, units: UnitSyst
         Column(Modifier.padding(horizontal = 14.dp, vertical = 6.dp)) {
             rows.forEachIndexed { index, row ->
                 if (index > 0) DividerSoft()
-                CutListRow(index + 1, row, units)
+                CutListRow(
+                    number = index + 1,
+                    row = row,
+                    units = units,
+                    selected = selectedPanelId != null && selectedPanelId in row.panelIds,
+                    onClick = { onSelectPanel(row.panelIds.firstOrNull()) },
+                )
             }
         }
     }
 }
 
 @Composable
-private fun CutListRow(number: Int, row: CutRow, units: UnitSystem) {
+private fun CutListRow(
+    number: Int,
+    row: CutRow,
+    units: UnitSystem,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.08f) else androidx.compose.ui.graphics.Color.Transparent)
+            .clickable(onClick = onClick)
             .padding(vertical = 9.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -250,6 +280,13 @@ private fun CutListRow(number: Int, row: CutRow, units: UnitSystem) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            if (selected) {
+                Text(
+                    "IN 3D",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.secondary,
+                )
+            }
         }
     }
 }

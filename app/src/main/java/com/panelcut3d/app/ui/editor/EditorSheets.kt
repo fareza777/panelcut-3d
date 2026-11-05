@@ -66,13 +66,22 @@ fun ParamsSheet(
     onApply: (DesignParams) -> Unit,
 ) {
     var draft by remember { mutableStateOf(initial) }
-    PcBottomSheet(onDismiss = onDismiss) {
+    PcBottomSheet(
+        onDismiss = onDismiss,
+        footer = {
+            PcButton(
+                text = "Apply parameters",
+                onClick = { onApply(draft) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+    ) {
         SheetTitle(
             title = "Furniture parameters",
             subtitle = "Enter precise dimensions. Panels are rebuilt automatically.",
         )
 
-        Text("FURNITURE TYPE", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("FURNITURE TYPE  •  SWIPE →", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier
@@ -235,12 +244,6 @@ fun ParamsSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Spacer(Modifier.height(18.dp))
-        PcButton(
-            text = "Apply parameters",
-            onClick = { onApply(draft) },
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
@@ -256,13 +259,22 @@ fun MaterialsSheet(
     var primaryId by remember { mutableStateOf(design.primaryMaterialId) }
     var backId by remember { mutableStateOf(design.backMaterialId) }
 
-    PcBottomSheet(onDismiss = onDismiss) {
+    PcBottomSheet(
+        onDismiss = onDismiss,
+        footer = {
+            PcButton(
+                text = "Apply materials",
+                onClick = { onApply(materials, primaryId, backId) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+    ) {
         SheetTitle(
             title = "Materials & sheets",
             subtitle = "Set thickness, sheet size, price, and grain direction.",
         )
 
-        Text("PRIMARY MATERIAL", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("PRIMARY MATERIAL  •  SWIPE →", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier
@@ -281,7 +293,7 @@ fun MaterialsSheet(
         }
 
         Spacer(Modifier.height(14.dp))
-        Text("BACKING / REAR PANEL", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("BACKING / REAR PANEL  •  SWIPE →", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier
@@ -311,12 +323,6 @@ fun MaterialsSheet(
             Spacer(Modifier.height(10.dp))
         }
 
-        Spacer(Modifier.height(6.dp))
-        PcButton(
-            text = "Apply materials",
-            onClick = { onApply(materials, primaryId, backId) },
-            modifier = Modifier.fillMaxWidth(),
-        )
     }
 }
 
@@ -423,7 +429,31 @@ fun PanelEditSheet(
     var grain by remember(panel.id) { mutableStateOf(panel.grain) }
     var banding by remember(panel.id) { mutableStateOf(panel.banding) }
 
-    PcBottomSheet(onDismiss = onDismiss) {
+    PcBottomSheet(
+        onDismiss = onDismiss,
+        footer = {
+            Column {
+                PcButton(
+                    text = "Save changes",
+                    onClick = {
+                        val resized = DesignEngine.withPanelSize(panel, cutW, cutH).copy(
+                            name = name.ifBlank { panel.name },
+                            materialId = materialId,
+                            grain = grain,
+                            banding = banding,
+                        )
+                        onSave(resized)
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
+                    Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.width(6.dp))
+                    Text("Delete panel", color = MaterialTheme.colorScheme.error)
+                }
+            }
+        },
+    ) {
         SheetTitle(
             title = "Edit panel",
             subtitle = "Precise cut dimensions and edge details.",
@@ -460,7 +490,7 @@ fun PanelEditSheet(
         }
 
         Spacer(Modifier.height(16.dp))
-        Text("MATERIAL", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("MATERIAL  •  SWIPE →", style = MaterialTheme.typography.labelSmall, letterSpacing = 1.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Spacer(Modifier.height(8.dp))
         Row(
             Modifier
@@ -500,25 +530,5 @@ fun PanelEditSheet(
             Pill("Right", banding.right, onClick = { banding = banding.copy(right = !banding.right) }, modifier = Modifier.weight(1f))
         }
 
-        Spacer(Modifier.height(18.dp))
-        PcButton(
-            text = "Save changes",
-            onClick = {
-                val resized = DesignEngine.withPanelSize(panel, cutW, cutH).copy(
-                    name = name.ifBlank { panel.name },
-                    materialId = materialId,
-                    grain = grain,
-                    banding = banding,
-                )
-                onSave(resized)
-            },
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(2.dp))
-        TextButton(onClick = onDelete, modifier = Modifier.fillMaxWidth()) {
-            Icon(Icons.Rounded.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
-            Spacer(Modifier.width(6.dp))
-            Text("Delete panel", color = MaterialTheme.colorScheme.error)
-        }
     }
 }
